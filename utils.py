@@ -18,14 +18,6 @@ except ImportError:
 def get_download_link(df, filename, link_text):
     """
     Generates a link to download the provided dataframe as a CSV file.
-
-    Args:
-        df: DataFrame to download
-        filename: Name of the file to download
-        link_text: Text to display for the download link
-
-    Returns:
-        str: HTML link for downloading the CSV
     """
     csv = df.to_csv(index=False)
     b64 = base64.b64encode(csv.encode()).decode()
@@ -36,14 +28,8 @@ def get_figure_download_link(fig, filename, link_text):
     """
     Generates a link to download the provided plotly figure as a PNG image.
     Silently falls back to a non-functional link if Kaleido is not available.
-
-    Args:
-        fig: Plotly figure to download
-        filename: Name of the file to download
-        link_text: Text to display for the download link
-
-    Returns:
-        str: HTML link for downloading the PNG or a styled link if not available
+    **At the end, I did not use this method because I had problems with Kaleido I could not resolve. 
+    Maybe in the future :)**
     """
     if not KALEIDO_AVAILABLE:
         # Silently return a styled link without warning
@@ -82,12 +68,27 @@ def initialize_session_state():
     if 'view_mode' not in st.session_state:
         st.session_state.view_mode = "Card View"
 
+    if 'find_my_fit_form_data' not in st.session_state:
+        st.session_state.find_my_fit_form_data = {}
+
+    if 'coming_from_find_my_fit' not in st.session_state:
+        st.session_state.coming_from_find_my_fit = False
+
+    # Store search results from Find My Fit
+    if 'find_my_fit_results' not in st.session_state:
+        st.session_state.find_my_fit_results = None
+
+    # Flag to indicate if we have search results to display
+    if 'has_find_my_fit_results' not in st.session_state:
+        st.session_state.has_find_my_fit_results = False
+
+    # Store the current view mode for Find My Fit results
+    if 'find_my_fit_view_mode' not in st.session_state:
+        st.session_state.find_my_fit_view_mode = "Card View"
+
 def add_to_shortlist(unitid):
     """
     Add a university to the shortlist.
-
-    Args:
-        unitid: University ID to add to shortlist
     """
     if unitid not in st.session_state.shortlisted_universities:
         st.session_state.shortlisted_universities.append(unitid)
@@ -95,9 +96,6 @@ def add_to_shortlist(unitid):
 def remove_from_shortlist(unitid):
     """
     Remove a university from the shortlist.
-
-    Args:
-        unitid: University ID to remove from shortlist
     """
     if unitid in st.session_state.shortlisted_universities:
         st.session_state.shortlisted_universities.remove(unitid)
@@ -105,9 +103,6 @@ def remove_from_shortlist(unitid):
 def toggle_university_selection(unitid):
     """
     Toggle a university's selection status for comparison.
-
-    Args:
-        unitid: University ID to toggle selection
     """
     if unitid in st.session_state.selected_universities:
         st.session_state.selected_universities.remove(unitid)
@@ -117,21 +112,26 @@ def toggle_university_selection(unitid):
 def set_active_tab(tab_name):
     """
     Set the active tab in the application.
-
-    Args:
-        tab_name: Name of the tab to activate
     """
     st.session_state.active_tab = tab_name
 
 def set_selected_university(unitid):
     """
     Set the selected university for detailed view.
-
-    Args:
-        unitid: University ID to select
     """
+    # Store the current form inputs in session state to preserve them
+    if 'find_my_fit_form_data' not in st.session_state:
+        st.session_state.find_my_fit_form_data = {}
+
+    # Set the selected university ID and active tab
     st.session_state.selected_university_id = unitid
     st.session_state.active_tab = "Details"
+
+    # Store a flag to indicate we're coming from Find My Fit
+    st.session_state.coming_from_find_my_fit = True
+
+    # Force a rerun to navigate to the details page
+    st.rerun()
 
 def clear_shortlist():
     """Clear the shortlist of universities."""
@@ -144,9 +144,6 @@ def clear_comparison():
 def generate_timestamp():
     """
     Generate a timestamp string for filenames.
-
-    Returns:
-        str: Current timestamp in YYYYMMDD_HHMMSS format
     """
     return datetime.now().strftime('%Y%m%d_%H%M%S')
 

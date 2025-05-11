@@ -1,3 +1,3 @@
 """
-UI components package for the University Scout application.
+UI components package for Pathfinder.
 """

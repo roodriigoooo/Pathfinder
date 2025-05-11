@@ -1,5 +1,5 @@
 """
-University details view for the University Scout application.
+University details view for the Pathfinder application.
 """
 
 import streamlit as st
@@ -9,21 +9,11 @@ from utils import (
     get_download_link, add_to_shortlist, remove_from_shortlist,
     toggle_university_selection, set_active_tab
 )
-import visualizations as viz
+import ui.visualizations as viz
 
-def display_university_details(unitid, inst_data, hist_data, fos_data, rank_data):
+def display_university_details(unitid, inst_data, hist_data, fos_data):
     """
     Displays detailed information for a selected university.
-
-    Args:
-        unitid: University ID to display
-        inst_data: DataFrame containing institution data
-        hist_data: DataFrame containing historical data
-        fos_data: DataFrame containing field of study data
-        rank_data: DataFrame containing ranking data
-
-    Returns:
-        None: Displays content directly using streamlit
     """
     # Get the university data
     uni_data = inst_data[inst_data['UNITID'] == unitid]
@@ -76,7 +66,7 @@ def display_university_details(unitid, inst_data, hist_data, fos_data, rank_data
             st.rerun()
 
     # Add a tabbed interface for better organization
-    detail_tabs = st.tabs(["📊 Overview", "🎓 Academics", "💰 Finances", "🌈 Campus Life", "📈 Outcomes", "🏆 Rankings"])
+    detail_tabs = st.tabs(["📊 Overview", "🎓 Academics", "💰 Finances", "🌈 Campus Life", "📈 Outcomes"])
 
     # Initialize session state for profile generation
     if 'show_profile' not in st.session_state:
@@ -180,263 +170,121 @@ def display_university_details(unitid, inst_data, hist_data, fos_data, rank_data
         score_col1, score_col2, score_col3 = st.columns(3)
 
         with score_col1:
-            # Admission Rate with visual indicator
-            if pd.notna(uni_data['ADM_RATE']):
-                adm_rate = uni_data['ADM_RATE']
-                # Determine selectivity level
-                if adm_rate < 0.1:
-                    selectivity = "Highly Selective"
-                    color = "#1e88e5"  # Blue
-                elif adm_rate < 0.25:
-                    selectivity = "Very Selective"
-                    color = "#43a047"  # Green
-                elif adm_rate < 0.5:
-                    selectivity = "Selective"
-                    color = "#fdd835"  # Yellow
-                elif adm_rate < 0.75:
-                    selectivity = "Moderately Selective"
-                    color = "#fb8c00"  # Orange
-                else:
-                    selectivity = "Inclusive"
-                    color = "#e53935"  # Red
+            # Use the reusable function for admission rate card and for all other cards
+            viz.plot_admission_rate_card(uni_data, key_prefix="details")
 
-                st.markdown(f"""
-                <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; background-color: white;">
-                    <h4 style="margin-top: 0; color: #333;">Admission Rate</h4>
-                    <p style="font-size: 24px; font-weight: bold; margin: 10px 0; color: #333;">{adm_rate:.1%}</p>
-                    <p style="color: {color}; font-weight: bold; margin-bottom: 5px;">{selectivity}</p>
-                    <div style="background-color: #e9ecef; border-radius: 4px; height: 8px;">
-                        <div style="background-color: {color}; width: {min(adm_rate * 100, 100)}%; height: 100%; border-radius: 4px;"></div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown("""
-                <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; background-color: white;">
-                    <h4 style="margin-top: 0; color: #333;">Admission Rate</h4>
-                    <p style="font-size: 24px; font-weight: bold; margin: 10px 0; color: #333;">N/A</p>
-                </div>
-                """, unsafe_allow_html=True)
+            viz.plot_test_policy_card(uni_data, key_prefix="details")
 
         with score_col2:
-            # SAT Score with visual indicator
-            if pd.notna(uni_data['SAT_AVG']):
-                sat_score = int(uni_data['SAT_AVG'])
-                # Determine SAT level (approximate percentiles)
-                if sat_score >= 1500:
-                    sat_level = "Top 1%"
-                    color = "#1e88e5"  # Blue
-                elif sat_score >= 1400:
-                    sat_level = "Top 5%"
-                    color = "#43a047"  # Green
-                elif sat_score >= 1300:
-                    sat_level = "Top 10%"
-                    color = "#fdd835"  # Yellow
-                elif sat_score >= 1200:
-                    sat_level = "Top 25%"
-                    color = "#fb8c00"  # Orange
-                else:
-                    sat_level = "Average or Below"
-                    color = "#e53935"  # Red
-
-                # Calculate percentage for visual (1600 is max SAT)
-                sat_percent = min(sat_score / 1600 * 100, 100)
-
-                st.markdown(f"""
-                <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; background-color: white;">
-                    <h4 style="margin-top: 0; color: #333;">Average SAT Score</h4>
-                    <p style="font-size: 24px; font-weight: bold; margin: 10px 0; color: #333;">{sat_score}</p>
-                    <p style="color: {color}; font-weight: bold; margin-bottom: 5px;">{sat_level}</p>
-                    <div style="background-color: #e9ecef; border-radius: 4px; height: 8px;">
-                        <div style="background-color: {color}; width: {sat_percent}%; height: 100%; border-radius: 4px;"></div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown("""
-                <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; background-color: white;">
-                    <h4 style="margin-top: 0; color: #333;">Average SAT Score</h4>
-                    <p style="font-size: 24px; font-weight: bold; margin: 10px 0; color: #333;">N/A</p>
-                </div>
-                """, unsafe_allow_html=True)
+            viz.plot_sat_score_card(uni_data, key_prefix="details")
 
         with score_col3:
-            # ACT Score with visual indicator
-            if 'ACTCMMID' in uni_data and pd.notna(uni_data['ACTCMMID']):
-                act_score = int(uni_data['ACTCMMID'])
-                # Determine ACT level (approximate percentiles)
-                if act_score >= 34:
-                    act_level = "Top 1%"
-                    color = "#1e88e5"  # Blue
-                elif act_score >= 32:
-                    act_level = "Top 5%"
-                    color = "#43a047"  # Green
-                elif act_score >= 30:
-                    act_level = "Top 10%"
-                    color = "#fdd835"  # Yellow
-                elif act_score >= 27:
-                    act_level = "Top 25%"
-                    color = "#fb8c00"  # Orange
-                else:
-                    act_level = "Average or Below"
-                    color = "#e53935"  # Red
+            viz.plot_act_score_card(uni_data, key_prefix="details")
 
-                # Calculate percentage for visual (36 is max ACT)
-                act_percent = min(act_score / 36 * 100, 100)
+        viz.plot_test_scores_trend(uni_data, hist_data, unitid)
 
-                st.markdown(f"""
-                <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; background-color: white;">
-                    <h4 style="margin-top: 0; color: #333;">Median ACT Score</h4>
-                    <p style="font-size: 24px; font-weight: bold; margin: 10px 0; color: #333;">{act_score}</p>
-                    <p style="color: {color}; font-weight: bold; margin-bottom: 5px;">{act_level}</p>
-                    <div style="background-color: #e9ecef; border-radius: 4px; height: 8px;">
-                        <div style="background-color: {color}; width: {act_percent}%; height: 100%; border-radius: 4px;"></div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown("""
-                <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; background-color: white;">
-                    <h4 style="margin-top: 0; color: #333;">Median ACT Score</h4>
-                    <p style="font-size: 24px; font-weight: bold; margin: 10px 0; color: #333;">N/A</p>
-                </div>
-                """, unsafe_allow_html=True)
-
-        # Historical admission trend
-        st.markdown("### Historical Admission Trends")
         viz.plot_admission_trend(uni_data, hist_data, unitid)
 
     # Finances Tab
     with detail_tabs[2]:
         st.markdown("### 💰 Cost & Financial Aid")
 
-        # Create a visually appealing cost comparison
-        if pd.notna(uni_data['TUITIONFEE_IN']) or pd.notna(uni_data['TUITIONFEE_OUT']):
-            # Get tuition values
-            in_state = int(uni_data['TUITIONFEE_IN']) if pd.notna(uni_data['TUITIONFEE_IN']) else 0
-            out_state = int(uni_data['TUITIONFEE_OUT']) if pd.notna(uni_data['TUITIONFEE_OUT']) else 0
+        # Net price visualization
+        viz.plot_net_price(uni_data)
 
-            # Create a visual comparison
-            st.markdown("""
-            <style>
-            .tuition-card {
-                border: 1px solid #e0e0e0;
-                border-radius: 8px;
-                padding: 20px;
-                margin-bottom: 20px;
-                background-color: white;
-            }
-            .tuition-card h3 {
-                color: #333;
-                margin-top: 0;
-            }
-            .tuition-bar {
-                height: 30px;
-                background-color: #e9ecef;
-                border-radius: 4px;
-                margin: 10px 0;
-                position: relative;
-            }
-            .tuition-fill {
-                height: 100%;
-                border-radius: 4px;
-                position: absolute;
-                left: 0;
-                top: 0;
-            }
-            .tuition-label {
-                position: absolute;
-                right: 10px;
-                top: 5px;
-                color: #212529;
-                font-weight: bold;
-            }
-            </style>
-
-            <div class="tuition-card">
-                <h3 style="margin-top: 0;">Annual Tuition Comparison</h3>
-            """, unsafe_allow_html=True)
-
-            # Maximum for scaling (use the larger of the two, or a minimum of $50,000)
-            max_tuition = max(in_state, out_state, 50000)
-
-            # In-state tuition bar
-            if pd.notna(uni_data['TUITIONFEE_IN']):
-                in_state_percent = (in_state / max_tuition) * 100
-                st.markdown(f"""
-                <p>In-State Tuition</p>
-                <div class="tuition-bar">
-                    <div class="tuition-fill" style="width: {in_state_percent}%; background-color: #43a047;"></div>
-                    <span class="tuition-label">${in_state:,}</span>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown("""
-                <p>In-State Tuition</p>
-                <div class="tuition-bar">
-                    <span class="tuition-label">N/A</span>
-                </div>
-                """, unsafe_allow_html=True)
-
-            # Out-of-state tuition bar
-            if pd.notna(uni_data['TUITIONFEE_OUT']):
-                out_state_percent = (out_state / max_tuition) * 100
-                st.markdown(f"""
-                <p>Out-of-State Tuition</p>
-                <div class="tuition-bar">
-                    <div class="tuition-fill" style="width: {out_state_percent}%; background-color: #1e88e5;"></div>
-                    <span class="tuition-label">${out_state:,}</span>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown("""
-                <p>Out-of-State Tuition</p>
-                <div class="tuition-bar">
-                    <span class="tuition-label">N/A</span>
-                </div>
-                """, unsafe_allow_html=True)
-
-            # Close the card
-            st.markdown("</div>", unsafe_allow_html=True)
-        else:
-            st.info("Tuition information is not available for this university.")
-
-        # Debt information in a card
-        if 'GRAD_DEBT_MDN' in uni_data and pd.notna(uni_data['GRAD_DEBT_MDN']):
-            debt = int(uni_data['GRAD_DEBT_MDN'])
-
-            # Determine debt level
-            if debt < 20000:
-                debt_level = "Low"
-                color = "#43a047"  # Green
-            elif debt < 30000:
-                debt_level = "Moderate"
-                color = "#fdd835"  # Yellow
-            elif debt < 40000:
-                debt_level = "High"
-                color = "#fb8c00"  # Orange
-            else:
-                debt_level = "Very High"
-                color = "#e53935"  # Red
-
-            st.markdown(f"""
-            <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 20px; background-color: white;">
-                <h3 style="margin-top: 0; color: #333;">Median Graduate Debt</h3>
-                <p style="font-size: 28px; font-weight: bold; margin: 10px 0; color: {color};">${debt:,}</p>
-                <p style="color: {color}; font-weight: bold;">{debt_level} Debt Level</p>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown("""
-            <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 20px; background-color: white;">
-                <h3 style="margin-top: 0; color: #333;">Median Graduate Debt</h3>
-                <p style="font-size: 28px; font-weight: bold; margin: 10px 0; color: #333;">N/A</p>
-            </div>
-            """, unsafe_allow_html=True)
-
-        # Historical tuition trend
+        # Historical tuition trend - moved here to be right after net price
         st.markdown("### Historical Tuition Trends")
         viz.plot_tuition_trend(uni_data, hist_data, unitid)
+
+        # Create a visually appealing cost comparison with cards instead of bars
+        st.subheader("Annual Tuition")
+
+        # Create two columns for the tuition cards
+        tuition_col1, tuition_col2 = st.columns(2)
+
+        with tuition_col1:
+            # In-state tuition card
+            if pd.notna(uni_data['TUITIONFEE_IN']):
+                in_state = int(uni_data['TUITIONFEE_IN'])
+                st.markdown(f"""
+                <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; background-color: white; text-align: center; height: 100%;">
+                    <h4 style="margin-top: 0; color: #333;">In-State Tuition</h4>
+                    <p style="font-size: 32px; font-weight: bold; margin: 15px 0; color: #7C9A83;">${in_state:,}</p>
+                    <p style="color: #666;">Annual cost for state residents</p>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; background-color: white; text-align: center; height: 100%;">
+                    <h4 style="margin-top: 0; color: #333;">In-State Tuition</h4>
+                    <p style="font-size: 32px; font-weight: bold; margin: 15px 0; color: #333;">N/A</p>
+                    <p style="color: #666;">Annual cost for state residents</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+        with tuition_col2:
+            # Out-of-state tuition card
+            if pd.notna(uni_data['TUITIONFEE_OUT']):
+                out_state = int(uni_data['TUITIONFEE_OUT'])
+                st.markdown(f"""
+                <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; background-color: white; text-align: center; height: 100%;">
+                    <h4 style="margin-top: 0; color: #333;">Out-of-State Tuition</h4>
+                    <p style="font-size: 32px; font-weight: bold; margin: 15px 0; color: #5B6ABF;">${out_state:,}</p>
+                    <p style="color: #666;">Annual cost for non-residents</p>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; background-color: white; text-align: center; height: 100%;">
+                    <h4 style="margin-top: 0; color: #333;">Out-of-State Tuition</h4>
+                    <p style="font-size: 32px; font-weight: bold; margin: 15px 0; color: #333;">N/A</p>
+                    <p style="color: #666;">Annual cost for non-residents</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+        # Enhanced debt visualizations
+        st.subheader("Student Debt")
+
+        if 'DEBT_MDN' in uni_data and pd.notna(uni_data['DEBT_MDN']):
+            debt = int(uni_data['DEBT_MDN'])
+
+            # Determine debt level with neutral colors
+            if debt < 20000:
+                debt_level = "Low"
+                color = "#5B6ABF"  # Muted blue-purple
+            elif debt < 30000:
+                debt_level = "Moderate"
+                color = "#6B8E9F"  # Muted blue-gray
+            elif debt < 40000:
+                debt_level = "High"
+                color = "#7C9A83"  # Muted green-gray
+            else:
+                debt_level = "Very High"
+                color = "#8E9C6B"  # Muted olive
+
+            st.markdown(f"""
+            <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 20px; background-color: white; text-align: center;">
+                <h3 style="margin-top: 0; color: #333;">Median Student Debt</h3>
+                <p style="font-size: 32px; font-weight: bold; margin: 15px 0; color: {color};">${debt:,}</p>
+                <p style="color: {color}; font-weight: bold;">{debt_level} Debt Level</p>
+                <p style="color: #666; font-size: 14px; margin-top: 10px;">Median federal loan debt accumulated at the institution by student borrowers who separate (either graduate or withdraw), measured at the point of separation.</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Show detailed debt breakdown by category
+            viz.plot_detailed_debt(uni_data)
+
+            # Show historical debt trends if available
+            viz.plot_debt_comparison(uni_data, hist_data, unitid)
+
+        else:
+            st.markdown("""
+            <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 20px; background-color: white; text-align: center;">
+                <h3 style="margin-top: 0; color: #333;">Median Student Debt</h3>
+                <p style="font-size: 32px; font-weight: bold; margin: 15px 0; color: #333;">N/A</p>
+                <p style="color: #666; font-size: 14px; margin-top: 10px;">Debt information not available for this institution</p>
+            </div>
+            """, unsafe_allow_html=True)
 
     # Campus Life Tab
     with detail_tabs[3]:
@@ -478,110 +326,46 @@ def display_university_details(unitid, inst_data, hist_data, fos_data, rank_data
             </div>
             """, unsafe_allow_html=True)
 
-        # Diversity data in a more visually appealing way
-        st.markdown("### Student Body Diversity")
+        # Create tabs for different diversity visualizations
+        diversity_tabs = st.tabs(["Student Diversity", "Staff Diversity", "Gender Distribution"])
 
-        diversity_cols = ['UGDS_WHITE', 'UGDS_BLACK', 'UGDS_HISP', 'UGDS_ASIAN',
-                          'UGDS_AIAN', 'UGDS_NHPI', 'UGDS_2MOR', 'UGDS_NRA', 'UGDS_UNKN']
-        has_diversity_data = any(col in uni_data.index for col in diversity_cols)
+        # Student Diversity Tab
+        with diversity_tabs[0]:
+            diversity_cols = ['UGDS_WHITE', 'UGDS_BLACK', 'UGDS_HISP', 'UGDS_ASIAN',
+                            'UGDS_AIAN', 'UGDS_NHPI', 'UGDS_2MOR', 'UGDS_NRA', 'UGDS_UNKN']
+            has_diversity_data = any(col in uni_data.index for col in diversity_cols)
 
-        if has_diversity_data:
-            # Create a more interactive diversity visualization
-            viz.plot_diversity_pie(uni_data)
+            if has_diversity_data:
+                # Create a more interactive diversity visualization
+                viz.diversity.plot_diversity_pie(uni_data)
+            else:
+                st.info("Student diversity data not available for this university.")
 
-            # Add a diversity breakdown table with visual bars
-            st.markdown("#### Diversity Breakdown")
+        # Staff Diversity Tab
+        with diversity_tabs[1]:
+            # Display staff diversity pie chart
+            staff_diversity_cols = ['IRPS_WHITE', 'IRPS_BLACK', 'IRPS_HISP', 'IRPS_ASIAN',
+                                   'IRPS_AIAN', 'IRPS_NHPI', 'IRPS_2MOR', 'IRPS_NRA', 'IRPS_UNKN']
+            has_staff_diversity = any(col in uni_data.index for col in staff_diversity_cols) and any(pd.notna(uni_data[col]) for col in staff_diversity_cols if col in uni_data.index)
 
-            # Define diversity labels and colors
-            diversity_labels = {
-                'UGDS_WHITE': 'White',
-                'UGDS_BLACK': 'Black',
-                'UGDS_HISP': 'Hispanic/Latino',
-                'UGDS_ASIAN': 'Asian',
-                'UGDS_AIAN': 'American Indian/Alaska Native',
-                'UGDS_NHPI': 'Native Hawaiian/Pacific Islander',
-                'UGDS_2MOR': 'Two or More Races',
-                'UGDS_NRA': 'Non-Resident Alien',
-                'UGDS_UNKN': 'Unknown'
-            }
+            if has_staff_diversity:
+                viz.diversity.plot_staff_diversity_pie(uni_data)
+            else:
+                st.info("Staff diversity data not available for this university.")
 
-            diversity_colors = {
-                'UGDS_WHITE': '#636EFA',
-                'UGDS_BLACK': '#EF553B',
-                'UGDS_HISP': '#00CC96',
-                'UGDS_ASIAN': '#AB63FA',
-                'UGDS_AIAN': '#FFA15A',
-                'UGDS_NHPI': '#19D3F3',
-                'UGDS_2MOR': '#FF6692',
-                'UGDS_NRA': '#B6E880',
-                'UGDS_UNKN': '#FF97FF'
-            }
+        # Gender Distribution Tab
+        with diversity_tabs[2]:
+            # Display gender pie charts
+            student_gender_cols = ['UGDS_MEN', 'UGDS_WOMEN']
+            staff_gender_cols = ['IRPS_MEN', 'IRPS_WOMEN']
 
-            # Create HTML for the diversity breakdown
-            st.markdown("""
-            <style>
-            .diversity-table {
-                width: 100%;
-                border-collapse: collapse;
-            }
-            .diversity-table th, .diversity-table td {
-                padding: 8px;
-                text-align: left;
-                border-bottom: 1px solid #e0e0e0;
-            }
-            .diversity-bar {
-                height: 20px;
-                background-color: #e9ecef;
-                border-radius: 4px;
-                margin: 5px 0;
-                position: relative;
-            }
-            .diversity-fill {
-                height: 100%;
-                border-radius: 4px;
-                position: absolute;
-                left: 0;
-                top: 0;
-            }
-            .diversity-label {
-                position: absolute;
-                right: 10px;
-                top: 2px;
-                color: #212529;
-                font-weight: bold;
-            }
-            </style>
+            has_student_gender = all(col in uni_data.index for col in student_gender_cols) and any(pd.notna(uni_data[col]) for col in student_gender_cols)
+            has_staff_gender = all(col in uni_data.index for col in staff_gender_cols) and any(pd.notna(uni_data[col]) for col in staff_gender_cols)
 
-            <table class="diversity-table">
-                <tr>
-                    <th>Race/Ethnicity</th>
-                    <th>Percentage</th>
-                </tr>
-            """, unsafe_allow_html=True)
-
-            # Add rows for each diversity category
-            for col in diversity_cols:
-                if col in uni_data.index and pd.notna(uni_data[col]) and uni_data[col] > 0:
-                    label = diversity_labels.get(col, col)
-                    value = uni_data[col]
-                    color = diversity_colors.get(col, '#777777')
-
-                    st.markdown(f"""
-                    <tr>
-                        <td>{label}</td>
-                        <td style="width: 70%;">
-                            <div class="diversity-bar">
-                                <div class="diversity-fill" style="width: {value*100}%; background-color: {color};"></div>
-                                <span class="diversity-label">{value:.1%}</span>
-                            </div>
-                        </td>
-                    </tr>
-                    """, unsafe_allow_html=True)
-
-            # Close the table
-            st.markdown("</table>", unsafe_allow_html=True)
-        else:
-            st.info("Diversity data not available for this university.")
+            if has_student_gender or has_staff_gender:
+                viz.diversity.plot_gender_pie(uni_data)
+            else:
+                st.info("Gender distribution data not available for this university.")
 
     # Outcomes Tab
     with detail_tabs[4]:
@@ -591,54 +375,8 @@ def display_university_details(unitid, inst_data, hist_data, fos_data, rank_data
         outcome_col1, outcome_col2 = st.columns(2)
 
         with outcome_col1:
-            # Graduation Rate with visual gauge
-            if pd.notna(uni_data['C150_4']):
-                grad_rate = uni_data['C150_4']
-
-                # Determine graduation rate level
-                if grad_rate >= 0.9:
-                    grad_level = "Excellent"
-                    color = "#1e88e5"  # Blue
-                elif grad_rate >= 0.75:
-                    grad_level = "Very Good"
-                    color = "#43a047"  # Green
-                elif grad_rate >= 0.6:
-                    grad_level = "Good"
-                    color = "#fdd835"  # Yellow
-                elif grad_rate >= 0.4:
-                    grad_level = "Fair"
-                    color = "#fb8c00"  # Orange
-                else:
-                    grad_level = "Poor"
-                    color = "#e53935"  # Red
-
-                # Create a circular gauge for graduation rate
-                st.markdown(f"""
-                <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 20px; background-color: #f8f9fa; text-align: center;">
-                    <h3 style="margin-top: 0;">4-Year Graduation Rate</h3>
-                    <div style="position: relative; width: 150px; height: 150px; margin: 0 auto;">
-                        <svg viewBox="0 0 36 36" style="width: 100%; height: 100%;">
-                            <path d="M18 2.0845
-                                a 15.9155 15.9155 0 0 1 0 31.831
-                                a 15.9155 15.9155 0 0 1 0 -31.831"
-                                fill="none" stroke="#e9ecef" stroke-width="3" stroke-dasharray="100, 100" />
-                            <path d="M18 2.0845
-                                a 15.9155 15.9155 0 0 1 0 31.831
-                                a 15.9155 15.9155 0 0 1 0 -31.831"
-                                fill="none" stroke="{color}" stroke-width="3" stroke-dasharray="{grad_rate * 100}, 100" />
-                            <text x="18" y="20.5" text-anchor="middle" font-size="8" font-weight="bold" fill="{color}">{grad_rate:.1%}</text>
-                        </svg>
-                    </div>
-                    <p style="color: {color}; font-weight: bold; margin-top: 10px;">{grad_level} Graduation Rate</p>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown("""
-                <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 20px; background-color: #f8f9fa; text-align: center;">
-                    <h3 style="margin-top: 0;">4-Year Graduation Rate</h3>
-                    <p style="font-size: 24px; font-weight: bold; margin: 10px 0;">N/A</p>
-                </div>
-                """, unsafe_allow_html=True)
+            # Use the reusable function for graduation rate card
+            viz.outcomes.plot_graduation_rate_card(uni_data, key_prefix="details")
 
         with outcome_col2:
             # Earnings with visual indicator
@@ -684,7 +422,7 @@ def display_university_details(unitid, inst_data, hist_data, fos_data, rank_data
 
         # Historical graduation rate trend
         st.markdown("### Historical Graduation Rate Trends")
-        viz.plot_graduation_trend(uni_data, hist_data, unitid)
+        viz.outcomes.plot_graduation_trend(uni_data, hist_data, unitid)
 
         # ROI Calculator (interactive element)
         st.markdown("### 🧮 Return on Investment Calculator")
@@ -761,150 +499,6 @@ def display_university_details(unitid, inst_data, hist_data, fos_data, rank_data
         else:
             st.info("Insufficient data to calculate return on investment.")
 
-    # Rankings Tab
-    with detail_tabs[5]:
-        st.markdown("### 🏆 University Rankings")
-
-        if not rank_data.empty:
-            # Filter ranking data for this university
-            # Need to match by name since UNITID is not in ranking data
-            uni_name = uni_data['INSTNM']
-
-            # Try to find matches in ranking data
-            # This is imperfect since names might not match exactly
-            rank_matches = rank_data[rank_data['institution_name'].str.contains(uni_name, case=False, na=False)]
-
-            if not rank_matches.empty:
-                # Group by source and year to get the most recent ranking for each source
-                rank_matches = rank_matches.sort_values('year', ascending=False)
-                latest_rankings = rank_matches.groupby('source').first().reset_index()
-
-                # Display rankings in a visually appealing way
-                st.markdown("""
-                <style>
-                .ranking-card {
-                    border: 1px solid #e0e0e0;
-                    border-radius: 8px;
-                    padding: 20px;
-                    margin-bottom: 20px;
-                    background-color: #f8f9fa;
-                    text-align: center;
-                }
-                .ranking-number {
-                    font-size: 48px;
-                    font-weight: bold;
-                    margin: 10px 0;
-                    color: #1e88e5;
-                }
-                .ranking-source {
-                    font-size: 18px;
-                    font-weight: bold;
-                    margin-bottom: 5px;
-                }
-                .ranking-year {
-                    font-size: 14px;
-                    color: #666;
-                }
-                </style>
-                """, unsafe_allow_html=True)
-
-                # Create cards for each ranking source
-                ranking_cols = st.columns(len(latest_rankings))
-
-                for i, (_, rank) in enumerate(latest_rankings.iterrows()):
-                    with ranking_cols[i]:
-                        # Determine ranking color based on rank
-                        if pd.notna(rank['world_rank']):
-                            world_rank = int(rank['world_rank'])
-                            if world_rank <= 10:
-                                rank_color = "#1e88e5"  # Blue
-                            elif world_rank <= 50:
-                                rank_color = "#43a047"  # Green
-                            elif world_rank <= 100:
-                                rank_color = "#fdd835"  # Yellow
-                            elif world_rank <= 200:
-                                rank_color = "#fb8c00"  # Orange
-                            else:
-                                rank_color = "#757575"  # Gray
-                        else:
-                            world_rank = "N/A"
-                            rank_color = "#757575"  # Gray
-
-                        # Create ranking card
-                        st.markdown(f"""
-                        <div class="ranking-card">
-                            <div class="ranking-source">{rank['source']} Ranking</div>
-                            <div class="ranking-year">{int(rank['year'])}</div>
-                            <div class="ranking-number" style="color: {rank_color};">{world_rank}</div>
-                            <div>World Rank</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                # Add ranking methodology explanations
-                st.markdown("### About University Rankings")
-
-                # Create tabs for each ranking system
-                ranking_sources = latest_rankings['source'].unique()
-                if len(ranking_sources) > 0:
-                    ranking_tabs = st.tabs([f"{source} Methodology" for source in ranking_sources])
-
-                    for i, source in enumerate(ranking_sources):
-                        with ranking_tabs[i]:
-                            if source == "Times":
-                                st.markdown("""
-                                #### Times Higher Education World University Rankings
-
-                                The Times Higher Education World University Rankings assess research-intensive universities across their core missions:
-
-                                - **Teaching (30%)**: Learning environment, reputation survey, staff-to-student ratio, doctorate-to-bachelor's ratio, institutional income
-                                - **Research (30%)**: Research reputation, research income, research productivity
-                                - **Citations (30%)**: Research influence measured by normalized citation impact
-                                - **International Outlook (7.5%)**: International students, staff, and research collaborations
-                                - **Industry Income (2.5%)**: Knowledge transfer measured by research income from industry
-
-                                [Learn more about Times Higher Education methodology](https://www.timeshighereducation.com/world-university-rankings/world-university-rankings-2021-methodology)
-                                """)
-                            elif source == "Shanghai":
-                                st.markdown("""
-                                #### Shanghai Academic Ranking of World Universities (ARWU)
-
-                                The Shanghai Ranking uses six objective indicators to rank universities:
-
-                                - **Alumni winning Nobel Prizes and Fields Medals (10%)**
-                                - **Staff winning Nobel Prizes and Fields Medals (20%)**
-                                - **Highly Cited Researchers (20%)**
-                                - **Papers published in Nature and Science (20%)**
-                                - **Papers indexed in Science Citation Index-Expanded and Social Science Citation Index (20%)**
-                                - **Per capita academic performance (10%)**
-
-                                [Learn more about Shanghai ARWU methodology](http://www.shanghairanking.com/methodology/arwu/2021)
-                                """)
-                            elif source == "CWUR":
-                                st.markdown("""
-                                #### Center for World University Rankings (CWUR)
-
-                                The CWUR ranks universities using seven indicators:
-
-                                - **Quality of Education (25%)**: Alumni success measured by major international awards
-                                - **Alumni Employment (25%)**: Alumni leadership positions in top companies
-                                - **Quality of Faculty (10%)**: Faculty awards, prizes, and medals
-                                - **Research Output (10%)**: Total number of research papers
-                                - **Quality Publications (10%)**: Papers in top-tier journals
-                                - **Influence (10%)**: Papers in highly-influential journals
-                                - **Citations (10%)**: Research citation impact
-
-                                [Learn more about CWUR methodology](https://cwur.org/methodology/world-university-rankings.php)
-                                """)
-
-                # If we have multiple years of data, show trend
-                if len(rank_matches) > len(latest_rankings):
-                    st.markdown("### Historical Ranking Trends")
-                    viz.plot_ranking_trend(uni_data, rank_matches)
-            else:
-                st.info("No ranking data found for this university.")
-        else:
-            st.info("Ranking data is not available.")
-
     # Check if we should show the profile generation section
     if st.session_state.show_profile:
         # Create a comprehensive profile
@@ -937,70 +531,3 @@ def display_university_details(unitid, inst_data, hist_data, fos_data, rank_data
             st.session_state.show_profile = False
             st.rerun()
 
-    # Add the Programs tab last
-    # Create a new tab for Programs & Fields of Study
-    if not fos_data.empty:
-        # Filter field of study data for this university
-        uni_fos = fos_data[fos_data['UNITID'] == unitid]
-
-        if not uni_fos.empty:
-            # Create a searchable program explorer
-            st.markdown("### 📚 Programs & Fields of Study")
-
-            # Group by credential level
-            cred_levels = uni_fos['CREDLEV'].unique()
-
-            # Create a dropdown to select credential level
-            if len(cred_levels) > 1:
-                selected_level = st.selectbox(
-                    "Select Degree Level:",
-                    options=sorted(cred_levels),
-                    format_func=lambda x: uni_fos[uni_fos['CREDLEV'] == x]['CREDDESC'].iloc[0]
-                )
-            else:
-                selected_level = cred_levels[0]
-
-            # Get the level name
-            level_name = uni_fos[uni_fos['CREDLEV'] == selected_level]['CREDDESC'].iloc[0]
-
-            # Get programs for this credential level
-            level_programs = uni_fos[uni_fos['CREDLEV'] == selected_level]
-
-            # Add a search box for programs
-            search_term = st.text_input("🔍 Search Programs:", placeholder="Type to search programs...")
-
-            if search_term:
-                # Filter programs by search term
-                filtered_programs = level_programs[level_programs['CIPDESC'].str.contains(search_term, case=False, na=False)]
-            else:
-                filtered_programs = level_programs
-
-            # Display program count
-            st.markdown(f"**Found {len(filtered_programs)} {level_name} programs**")
-
-            # Create a more interactive program display
-            if not filtered_programs.empty:
-                # Create a tabbed interface for program view options
-                program_tabs = st.tabs(["Table View", "Earnings Comparison"])
-
-                with program_tabs[0]:
-                    # Display programs in a table
-                    st.dataframe(
-                        filtered_programs[['CIPCODE', 'CIPDESC', 'EARN_MDN_HI_1YR']],
-                        use_container_width=True,
-                        column_config={
-                            "CIPCODE": st.column_config.TextColumn("CIP Code"),
-                            "CIPDESC": st.column_config.TextColumn("Program"),
-                            "EARN_MDN_HI_1YR": st.column_config.NumberColumn("Median Earnings (1yr)", format="$%d")
-                        }
-                    )
-
-                with program_tabs[1]:
-                    # Show earnings visualization
-                    viz.plot_program_earnings(uni_data, fos_data, unitid, selected_level)
-            else:
-                st.info(f"No programs found matching '{search_term}'.")
-        else:
-            st.info("No program data found for this university.")
-    else:
-        st.info("Program data is not available.")

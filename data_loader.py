@@ -5,23 +5,14 @@ Data loading functions for the University Scout application.
 import streamlit as st
 import pandas as pd
 import numpy as np
-from Pathfinder.config import (
-    INSTITUTION_DATA_URL, RANKING_FILES, COLUMNS_TO_LOAD, NUMERIC_COLUMNS, STATE_NAMES
+from config import (
+    INSTITUTION_DATA_URL, COLUMNS_TO_LOAD, NUMERIC_COLUMNS, STATE_NAMES
 )
 
 @st.cache_data
-def load_institution_data(columns_to_load=None, numeric_columns=None, sample_fraction=0.5):
+def load_institution_data(columns_to_load=None, numeric_columns=None):
     """
     Loads the most recent institution-level data, selects specific columns, and cleans it.
-    Optionally samples a fraction of universities to improve performance.
-
-    Args:
-        columns_to_load: List of columns to load from the CSV
-        numeric_columns: List of columns to convert to numeric type
-        sample_fraction: Fraction of universities to randomly sample (default: 0.5)
-
-    Returns:
-        DataFrame: Cleaned institution data
     """
     if columns_to_load is None:
         columns_to_load = COLUMNS_TO_LOAD
@@ -30,7 +21,7 @@ def load_institution_data(columns_to_load=None, numeric_columns=None, sample_fra
         numeric_columns = NUMERIC_COLUMNS
 
     try:
-        df = pd.read_csv(INSTITUTION_DATA_URL, usecols=columns_to_load, low_memory=False)
+        df = pd.read_parquet(INSTITUTION_DATA_URL, columns=columns_to_load)
 
         # Replace common null/suppressed values with NaN
         df = df.replace(['PrivacySuppressed', 'NULL'], np.nan, regex=True)
@@ -52,11 +43,6 @@ def load_institution_data(columns_to_load=None, numeric_columns=None, sample_fra
         if 'STABBR' in df.columns:
             df['STATE_NAME'] = df['STABBR'].map(STATE_NAMES).fillna(df['STABBR'])
 
-        # Randomly sample a fraction of universities to improve performance
-        if sample_fraction < 1.0:
-            df = df.sample(frac=sample_fraction, random_state=42)
-            st.info(f"Performance mode: Using a random sample of {int(sample_fraction*100)}% of universities.")
-
         return df
     except FileNotFoundError:
         st.error(f"Error: Institution data file not found at {INSTITUTION_DATA_URL}")
@@ -69,19 +55,33 @@ def load_institution_data(columns_to_load=None, numeric_columns=None, sample_fra
 def load_historical_data():
     """
     Loads and concatenates historical cohort data (recent years).
-
-    Returns:
-        DataFrame: Historical institution data
     """
-    # Load only the most recent years to improve performance
+    # Load data from 2015-16 onwards for better historical trends
     files_to_load = [
-        "data/MERGED2020_21_PP.csv",
-        "data/MERGED2021_22_PP.csv",
-        "data/MERGED2022_23_PP.csv"
+        "data/MERGED2015_16_PP.parquet",
+        "data/MERGED2016_17_PP.parquet",
+        "data/MERGED2017_18_PP.parquet",
+        "data/MERGED2018_19_PP.parquet",
+        "data/MERGED2019_20_PP.parquet",
+        "data/MERGED2020_21_PP.parquet",
+        "data/MERGED2021_22_PP.parquet",
+        "data/MERGED2022_23_PP.parquet"
     ]
-    # Optimized to match main data columns
-    historical_cols = ['UNITID', 'INSTNM', 'STABBR', 'CONTROL', 'ADM_RATE',
-                       'TUITIONFEE_IN', 'TUITIONFEE_OUT', 'SAT_AVG', 'C150_4']
+    # Enhanced to include more metrics for trend analysis
+    historical_cols = [
+        'UNITID', 'INSTNM', 'STABBR', 'CONTROL',
+        'ADM_RATE', 'TUITIONFEE_IN', 'TUITIONFEE_OUT',
+        'SAT_AVG', 'ACTCMMID', 'C150_4', 'UGDS',
+        # Student debt information
+        'DEBT_MDN', 'GRAD_DEBT_MDN', 'WDRAW_DEBT_MDN',
+        'FEMALE_DEBT_MDN', 'MALE_DEBT_MDN',
+        'FIRSTGEN_DEBT_MDN', 'NOTFIRSTGEN_DEBT_MDN',
+        # Student diversity columns
+        'UGDS_WHITE', 'UGDS_BLACK', 'UGDS_HISP', 'UGDS_ASIAN',
+        'UGDS_AIAN', 'UGDS_NHPI', 'UGDS_2MOR', 'UGDS_NRA', 'UGDS_UNKN',
+        # Gender columns
+        'UGDS_MEN', 'UGDS_WOMEN'
+    ]
     all_dfs = []
     for f in files_to_load:
         try:
@@ -89,7 +89,10 @@ def load_historical_data():
             # Attempt to create a reliable year column (e.g., start year of the cohort)
             year = int(year_str[:4]) if year_str else None
 
-            df = pd.read_csv(f, usecols=lambda c: c in historical_cols or c == 'YEAR', low_memory=False)
+            # Read only the columns we need
+            columns_to_read = [col for col in historical_cols if col != 'YEAR'] + ['YEAR'] if 'YEAR' in pd.read_parquet(f, columns=None).columns else [col for col in historical_cols if col != 'YEAR']
+            df = pd.read_parquet(f, columns=columns_to_read)
+
             # If YEAR column doesn't exist, add it based on filename
             if 'YEAR' not in df.columns and year is not None:
                 df['YEAR'] = year
@@ -121,21 +124,18 @@ def load_historical_data():
 def load_field_of_study_data():
     """
     Loads and concatenates field of study data (most recent file).
-
-    Returns:
-        DataFrame: Field of study data
     """
     # Load only the most recent FoS file for now
-    fos_file = "data/FieldOfStudyData1819_1920_PP.csv"
+    fos_file = "data/FieldOfStudyData1819_1920_PP.parquet"
     # Optimized to include only essential columns
     fos_cols = ['UNITID', 'INSTNM', 'CIPCODE', 'CIPDESC', 'CREDLEV', 'CREDDESC',
                 'EARN_MDN_HI_1YR']
     try:
         # Check which columns actually exist in the file
-        available_cols = pd.read_csv(fos_file, nrows=0).columns.tolist()
+        available_cols = pd.read_parquet(fos_file, columns=None).columns.tolist()
         cols_to_use = [col for col in fos_cols if col in available_cols]
 
-        df = pd.read_csv(fos_file, usecols=cols_to_use, low_memory=False)
+        df = pd.read_parquet(fos_file, columns=cols_to_use)
         df = df.replace(['PrivacySuppressed', 'NULL'], np.nan, regex=True)
 
         numeric_fos_cols = ['EARN_MDN_HI_1YR']
@@ -152,39 +152,4 @@ def load_field_of_study_data():
         st.error(f"An error occurred loading Field of Study data: {e}")
         return pd.DataFrame()
 
-@st.cache_data
-def load_ranking_data():
-    """
-    Loads data from various ranking sources.
-    Optimized to load only the most recent year for performance.
 
-    Returns:
-        DataFrame: Combined ranking data
-    """
-    # For performance optimization, we'll only load one ranking source
-    try:
-        # Load only the Times ranking data as it's most recognized
-        times_df = pd.read_csv(RANKING_FILES['times'])
-
-        # Select only essential columns
-        times_df = times_df[['university_name', 'world_rank', 'year']].copy()
-
-        # Filter for most recent year only
-        max_year = times_df['year'].max()
-        times_df = times_df[times_df['year'] == max_year]
-
-        # Rename columns for consistency
-        times_df.rename(columns={'university_name': 'institution_name'}, inplace=True)
-        times_df['source'] = 'Times'
-
-        # Clean rank data
-        times_df['world_rank'] = times_df['world_rank'].astype(str).str.replace('=', '').str.split('-').str[0]
-        times_df['world_rank'] = pd.to_numeric(times_df['world_rank'], errors='coerce')
-
-        # Convert year to integer
-        times_df['year'] = times_df['year'].astype(int)
-
-        return times_df
-    except Exception as e:
-        st.warning(f"Error loading ranking data: {e}")
-        return pd.DataFrame()

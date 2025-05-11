@@ -1,5 +1,5 @@
 """
-University Scout - A tool to help students explore and shortlist universities.
+Pathfinder - A tool to help students explore and shortlist universities.
 """
 
 import streamlit as st
@@ -12,7 +12,6 @@ from data_loader import (
     load_institution_data,
     load_historical_data,
     load_field_of_study_data,
-    load_ranking_data
 )
 
 # Import utility functions
@@ -22,12 +21,11 @@ from utils import (
 )
 
 # Import UI components
-from Pathfinder.ui import display_sidebar_filters
-from Pathfinder.ui import display_main_content
-from Pathfinder.ui import display_university_details
-from Pathfinder.ui import display_comparison_section
-from Pathfinder.ui import display_find_my_fit
-from Pathfinder.ui.shortlist import display_shortlist
+from ui.sidebar import display_sidebar_filters
+from ui.explore import display_main_content
+from ui.details import display_university_details
+from ui.find_my_fit import display_find_my_fit
+from ui.shortlist_compare import display_unified_shortlist_compare
 
 
 def main():
@@ -46,22 +44,33 @@ def main():
     # Initialize session state
     initialize_session_state()
 
-    # Load the data with performance optimizations
-    data = load_institution_data(COLUMNS_TO_LOAD, NUMERIC_COLUMNS, sample_fraction=0.5)
+    # Load the data (using full dataset)
+    data = load_institution_data(COLUMNS_TO_LOAD, NUMERIC_COLUMNS)
     historical_data = load_historical_data()
     fos_data = load_field_of_study_data()
-    ranking_data = load_ranking_data()
 
     if not data.empty:
         # Check if we need to show university details
         if st.session_state.active_tab == "Details" and st.session_state.selected_university_id is not None:
+            # Add a back button to return to the previous tab
+            col1, col2 = st.columns([1, 11])
+            with col1:
+                if st.button("← Back"):
+                    # If coming from Find My Fit, go back to that tab
+                    if st.session_state.coming_from_find_my_fit:
+                        st.session_state.active_tab = "Find My Fit"
+                        st.session_state.coming_from_find_my_fit = False
+                    else:
+                        st.session_state.active_tab = "Explore"
+                    st.session_state.selected_university_id = None
+                    st.rerun()
+
             # Display university details
             display_university_details(
                 st.session_state.selected_university_id,
                 data,
                 historical_data,
-                fos_data,
-                ranking_data
+                fos_data
             )
         else:
             # Display sidebar filters and get selections
@@ -105,6 +114,15 @@ def main():
                     (filtered_data['C150_4'].isna())
                 ]
 
+            # Apply test score policy filter if available
+            if filter_options["test_policy"] != "Any" and 'ADMCON7' in filtered_data.columns:
+                # Convert the selected policy to integer for comparison
+                selected_policy = int(filter_options["test_policy"])
+                filtered_data = filtered_data[
+                    (filtered_data['ADMCON7'] == selected_policy) |
+                    (filtered_data['ADMCON7'].isna())  # Include universities with missing data
+                ]
+
             # Display welcome header with emoji
             st.title("🎓 Pathfinder")
             st.markdown("""
@@ -113,7 +131,30 @@ def main():
             """)
 
             # Display main tabs with emojis
-            tabs = st.tabs(["🔍 Explore Universities", "🎯 Find My Fit", "⚖️ Compare Universities", "📋 My Shortlist"])
+            tab_names = ["🔍 Explore Universities", "🎯 Find My Fit", "📋 My Universities"]
+
+            # Map tab names to their index for selection
+            tab_index_map = {
+                "Explore": 0,
+                "Find My Fit": 1,
+                "Shortlist": 2,
+                "Compare": 2  # Map Compare to the same tab as Shortlist
+            }
+
+            # Get the current active tab index (default to Explore if not found)
+            active_tab_name = st.session_state.active_tab
+            if active_tab_name not in ["Details", "Explore", "Find My Fit", "Compare", "Shortlist"]:
+                active_tab_name = "Explore"
+
+            # If coming from Find My Fit and returning to tabs, select the Find My Fit tab
+            if st.session_state.coming_from_find_my_fit:
+                active_tab_name = "Find My Fit"
+                st.session_state.coming_from_find_my_fit = False
+
+            active_tab_index = tab_index_map.get(active_tab_name, 0)
+
+            # Create the tabs with the active tab selected
+            tabs = st.tabs(tab_names)
 
             # Explore Universities Tab
             with tabs[0]:
@@ -121,8 +162,7 @@ def main():
                     filtered_data,
                     data,
                     historical_data,
-                    fos_data,
-                    ranking_data
+                    fos_data
                 )
 
             # Find My Fit Tab
@@ -130,27 +170,15 @@ def main():
                 display_find_my_fit(
                     data,
                     historical_data,
-                    fos_data,
-                    ranking_data
+                    fos_data
                 )
 
-            # Compare Universities Tab
+            # My Universities Tab (Unified Shortlist & Compare)
             with tabs[2]:
-                display_comparison_section(
-                    st.session_state.selected_universities,
+                display_unified_shortlist_compare(
                     data,
                     historical_data,
-                    fos_data,
-                    ranking_data
-                )
-
-            # My Shortlist Tab
-            with tabs[3]:
-                display_shortlist(
-                    data,
-                    historical_data,
-                    fos_data,
-                    ranking_data
+                    fos_data
                 )
     else:
         st.warning("Could not load university data.")

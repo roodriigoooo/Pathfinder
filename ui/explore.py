@@ -1,5 +1,5 @@
 """
-Explore universities tab for the University Scout application.
+Explore universities tab for Pathfinder.
 """
 
 import streamlit as st
@@ -10,21 +10,37 @@ from utils import (
     get_download_link, add_to_shortlist, remove_from_shortlist,
     set_selected_university, toggle_university_selection
 )
-import visualizations as viz
+from ui.visualizations.academic import (
+    plot_selectivity_scatter,
+    plot_sat_distribution,
+    plot_test_policy_distribution
+)
+from ui.visualizations.cost import (
+    plot_tuition_distribution,
+    plot_tuition_vs_size,
+    plot_state_tuition_comparison
+)
+from ui.visualizations.outcomes import (
+    plot_graduation_rate_histogram,
+    plot_debt_earnings_scatter,
+    plot_admission_debt_earnings_ratio
+)
+from ui.visualizations.institution import (
+    plot_control_type_distribution,
+    plot_institution_size_distribution
+)
+from ui.visualizations.diversity import (
+    plot_diversity_composition,
+    plot_diversity_comparison_by_control,
+    plot_gender_comparison,
+    plot_gender_ratio_by_type,
+    plot_staff_diversity_composition,
+    plot_staff_gender_ratio_by_type
+)
 
-def display_main_content(filtered_data, all_data, historical_data, fos_data, ranking_data):
+def display_main_content(filtered_data, all_data, historical_data, fos_data):
     """
     Displays the filtered data table (with selection) and visualizations.
-
-    Args:
-        filtered_data: DataFrame containing filtered university data
-        all_data: DataFrame containing all university data
-        historical_data: DataFrame containing historical data
-        fos_data: DataFrame containing field of study data
-        ranking_data: DataFrame containing ranking data
-
-    Returns:
-        None: Displays content directly using streamlit
     """
     # Display count and download option with emoji
     col1, col2 = st.columns([3, 1])
@@ -42,33 +58,15 @@ def display_main_content(filtered_data, all_data, historical_data, fos_data, ran
                 unsafe_allow_html=True
             )
 
-    # Display shortlist management section with emoji
-    if 'shortlisted_universities' in st.session_state and st.session_state.shortlisted_universities:
-        with st.expander("📋 Manage Shortlist", expanded=False):
-            shortlist_df = all_data[all_data['UNITID'].isin(st.session_state.shortlisted_universities)].copy()
-            st.write(f"✅ You have {len(shortlist_df)} universities in your shortlist")
-
-            # Download options for shortlist
-            if st.button("🗑️ Clear Shortlist", key="clear_shortlist_button"):
-                st.session_state.shortlisted_universities = []
-                st.rerun()
-
-            st.markdown(
-                get_download_link(
-                    shortlist_df,
-                    f"shortlisted_universities_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    "📥 Download Shortlist as CSV"
-                ),
-                unsafe_allow_html=True
-            )
+    # Removed 'Manage Shortlist' widget to simplify the UI, which i realized makes no sense...
+    # Users can manage their shortlist in the dedicated 'My Universities' tab
 
     # Display optimized table view
     display_table_view(filtered_data)
 
-    # --- Enhanced Visualizations Section ---
     if not filtered_data.empty and len(filtered_data) > 1:
-        st.header("📊 Data Visualizations")
-        st.write("Explore the data through interactive visualizations to gain deeper insights.")
+        st.header("📊 University Insights")
+        st.write("Explore patterns and trends across universities through interactive visualizations.")
 
         # Create tabs for different visualization categories
         viz_tabs = st.tabs(["🎯 Selectivity", "💰 Cost", "📈 Outcomes", "🏫 Institution Types", "🌈 Diversity"])
@@ -76,205 +74,85 @@ def display_main_content(filtered_data, all_data, historical_data, fos_data, ran
         # Selectivity Tab
         with viz_tabs[0]:
             st.subheader("University Selectivity Analysis")
-            viz.plot_selectivity_scatter(filtered_data)
+            plot_selectivity_scatter(filtered_data)
 
-            # Add a second row with additional visualizations
-            col1, col2 = st.columns(2)
-            with col1:
-                # Add admission rate histogram
-                if 'ADM_RATE' in filtered_data.columns:
-                    st.markdown("#### Admission Rate Distribution")
-                    plot_data = filtered_data.dropna(subset=['ADM_RATE'])
-                    if not plot_data.empty:
-                        fig = px.histogram(
-                            plot_data,
-                            x='ADM_RATE',
-                            nbins=20,
-                            title="Distribution of Admission Rates",
-                            labels={'ADM_RATE': 'Admission Rate'}
-                        )
-                        fig.update_layout(
-                            xaxis_title="Admission Rate",
-                            yaxis_title="Number of Universities",
-                            xaxis_tickformat=".0%"
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
+            # Add SAT score distribution
+            plot_sat_distribution(filtered_data)
 
-            with col2:
-                # Add test score box plot
-                if 'SAT_AVG' in filtered_data.columns:
-                    st.markdown("#### SAT Score by Institution Type")
-                    plot_data = filtered_data.dropna(subset=['SAT_AVG', 'CONTROL_TYPE'])
-                    if not plot_data.empty:
-                        fig = px.box(
-                            plot_data,
-                            x='CONTROL_TYPE',
-                            y='SAT_AVG',
-                            title="SAT Score Distribution by Institution Type",
-                            labels={'CONTROL_TYPE': 'Institution Type', 'SAT_AVG': 'Average SAT Score'}
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
+            # Add test score policy visualization
+            plot_test_policy_distribution(filtered_data)
 
         # Cost Tab
         with viz_tabs[1]:
             st.subheader("Cost Analysis")
-            viz.plot_tuition_distribution(filtered_data)
+            # Tuition distribution by control type
+            plot_tuition_distribution(filtered_data)
 
-            # Add a second row with additional cost visualizations
-            col1, col2 = st.columns(2)
-            with col1:
-                # Add tuition vs. size scatter plot
-                if all(col in filtered_data.columns for col in ['TUITIONFEE_IN', 'UGDS']):
-                    st.markdown("#### Tuition vs. Institution Size")
-                    plot_data = filtered_data.dropna(subset=['TUITIONFEE_IN', 'UGDS'])
-                    if not plot_data.empty:
-                        fig = px.scatter(
-                            plot_data,
-                            x='UGDS',
-                            y='TUITIONFEE_IN',
-                            color='CONTROL_TYPE',
-                            hover_name='INSTNM',
-                            title="Tuition vs. Institution Size",
-                            labels={
-                                'UGDS': 'Undergraduate Enrollment',
-                                'TUITIONFEE_IN': 'In-State Tuition ($)',
-                                'CONTROL_TYPE': 'Institution Type'
-                            }
-                        )
-                        fig.update_layout(
-                            xaxis_title="Undergraduate Enrollment",
-                            yaxis_title="In-State Tuition ($)",
-                            yaxis_tickformat="$,.0f"
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
+            # Tuition vs. institution size
+            plot_tuition_vs_size(filtered_data)
 
-            with col2:
-                # Add state tuition comparison
-                if all(col in filtered_data.columns for col in ['TUITIONFEE_IN', 'STABBR']):
-                    st.markdown("#### Average Tuition by State")
-                    plot_data = filtered_data.dropna(subset=['TUITIONFEE_IN', 'STABBR'])
-                    if not plot_data.empty and len(plot_data['STABBR'].unique()) > 1:
-                        state_avg = plot_data.groupby('STABBR')['TUITIONFEE_IN'].mean().reset_index()
-                        state_avg = state_avg.sort_values('TUITIONFEE_IN', ascending=False).head(10)
-
-                        fig = px.bar(
-                            state_avg,
-                            x='STABBR',
-                            y='TUITIONFEE_IN',
-                            title="Average In-State Tuition by State (Top 10)",
-                            labels={'STABBR': 'State', 'TUITIONFEE_IN': 'Average In-State Tuition ($)'}
-                        )
-                        fig.update_layout(
-                            xaxis_title="State",
-                            yaxis_title="Average In-State Tuition ($)",
-                            yaxis_tickformat="$,.0f"
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
+            # State tuition comparison
+            plot_state_tuition_comparison(filtered_data)
 
         # Outcomes Tab
         with viz_tabs[2]:
             st.subheader("Student Outcomes Analysis")
 
             # Graduation rate visualization
-            viz.plot_graduation_rate_histogram(filtered_data)
+            plot_graduation_rate_histogram(filtered_data)
 
             # Add ROI visualization
-            if all(col in filtered_data.columns for col in ['GRAD_DEBT_MDN', 'MD_EARN_WNE_P10']):
-                viz.plot_debt_earnings_scatter(filtered_data)
+            plot_debt_earnings_scatter(filtered_data)
+
+            # Add Admission Rate vs. Debt-to-Earnings visualization
+            plot_admission_debt_earnings_ratio(filtered_data)
 
         # Institution Types Tab
         with viz_tabs[3]:
             st.subheader("Institution Types Analysis")
 
             # Control type distribution
-            viz.plot_control_type_distribution(filtered_data)
+            plot_control_type_distribution(filtered_data)
 
-            # Add institution size distribution
-            if 'UGDS' in filtered_data.columns:
-                st.markdown("#### Institution Size Distribution")
-                plot_data = filtered_data.dropna(subset=['UGDS', 'CONTROL_TYPE'])
-                if not plot_data.empty:
-                    # Create size categories
-                    plot_data['Size Category'] = pd.cut(
-                        plot_data['UGDS'],
-                        bins=[0, 1000, 5000, 15000, 30000, float('inf')],
-                        labels=['Very Small (<1K)', 'Small (1K-5K)', 'Medium (5K-15K)', 'Large (15K-30K)', 'Very Large (>30K)']
-                    )
-
-                    size_counts = plot_data.groupby(['CONTROL_TYPE', 'Size Category']).size().reset_index(name='count')
-
-                    fig = px.bar(
-                        size_counts,
-                        x='CONTROL_TYPE',
-                        y='count',
-                        color='Size Category',
-                        title="Institution Size Distribution by Control Type",
-                        labels={
-                            'CONTROL_TYPE': 'Institution Type',
-                            'count': 'Number of Universities',
-                            'Size Category': 'Size Category'
-                        },
-                        barmode='group'
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
+            # Institution size distribution
+            plot_institution_size_distribution(filtered_data)
 
         # Diversity Tab
         with viz_tabs[4]:
             st.subheader("Diversity Analysis")
 
-            # Average diversity composition
-            viz.plot_diversity_composition(filtered_data)
+            # Create subtabs for different diversity visualizations
+            diversity_subtabs = st.tabs(["Racial/Ethnic Diversity", "Gender Distribution", "Staff Diversity"])
 
-            # Add gender ratio visualization if available
-            if 'UGDS_MEN' in filtered_data.columns and 'UGDS_WOMEN' in filtered_data.columns:
-                st.markdown("#### Gender Ratio by Institution Type")
-                plot_data = filtered_data.dropna(subset=['UGDS_MEN', 'UGDS_WOMEN', 'CONTROL_TYPE'])
+            # Racial/Ethnic Diversity Tab
+            with diversity_subtabs[0]:
+                # Average undergraduate diversity composition
+                plot_diversity_composition(filtered_data)
 
-                if not plot_data.empty:
-                    # Calculate average gender ratio by control type
-                    gender_ratio = plot_data.groupby('CONTROL_TYPE')[['UGDS_MEN', 'UGDS_WOMEN']].mean().reset_index()
+                # Diversity by institution type
+                plot_diversity_comparison_by_control(filtered_data)
 
-                    # Melt the data for plotting
-                    gender_ratio_melt = gender_ratio.melt(
-                        id_vars=['CONTROL_TYPE'],
-                        value_vars=['UGDS_MEN', 'UGDS_WOMEN'],
-                        var_name='Gender',
-                        value_name='Proportion'
-                    )
+            # Gender Distribution Tab
+            with diversity_subtabs[1]:
+                # Gender comparison between students and staff
+                plot_gender_comparison(filtered_data)
 
-                    # Map column names to readable labels
-                    gender_ratio_melt['Gender'] = gender_ratio_melt['Gender'].map({
-                        'UGDS_MEN': 'Male',
-                        'UGDS_WOMEN': 'Female'
-                    })
+                # Gender ratio by institution type
+                plot_gender_ratio_by_type(filtered_data)
 
-                    fig = px.bar(
-                        gender_ratio_melt,
-                        x='CONTROL_TYPE',
-                        y='Proportion',
-                        color='Gender',
-                        title="Average Gender Ratio by Institution Type",
-                        labels={
-                            'CONTROL_TYPE': 'Institution Type',
-                            'Proportion': 'Proportion',
-                            'Gender': 'Gender'
-                        },
-                        barmode='stack'
-                    )
-                    fig.update_layout(yaxis_tickformat=".0%")
-                    st.plotly_chart(fig, use_container_width=True)
+            # Staff Diversity Tab
+            with diversity_subtabs[2]:
+                # Staff diversity composition
+                plot_staff_diversity_composition(filtered_data)
+
+                # Staff gender ratio by institution type
+                plot_staff_gender_ratio_by_type(filtered_data)
     else:
         st.info("ℹ️ No universities match the current filter criteria or not enough data for visualizations.")
 
 def display_table_view(filtered_data):
     """
     Displays universities in an optimized table view with selection options.
-
-    Args:
-        filtered_data: DataFrame containing filtered university data
-
-    Returns:
-        None: Displays content directly using streamlit
     """
     # Initialize session state for tracking changes
     if 'last_shortlist_action' not in st.session_state:
@@ -282,19 +160,17 @@ def display_table_view(filtered_data):
 
     # Create a lightweight copy with only necessary columns
     essential_columns = ['UNITID', 'INSTNM', 'CITY', 'STABBR', 'CONTROL_TYPE',
-                         'ADM_RATE', 'SAT_AVG', 'TUITIONFEE_IN', 'C150_4']
+                         'ADM_RATE', 'SAT_AVG', 'TUITIONFEE_IN', 'C150_4', 'ADMCON7']
 
     # Filter columns that exist in the dataframe
     available_columns = [col for col in essential_columns if col in filtered_data.columns]
     display_df = filtered_data[available_columns].copy()
 
-    # Add interaction columns
-    display_df.insert(0, 'Select', display_df['UNITID'].isin(st.session_state.selected_universities))
-    display_df.insert(1, 'Shortlist', display_df['UNITID'].isin(st.session_state.shortlisted_universities))
+    # Add shortlist column
+    display_df.insert(0, 'Shortlist', display_df['UNITID'].isin(st.session_state.shortlisted_universities))
 
     # Create optimized column configuration
     column_config = {
-        "Select": st.column_config.CheckboxColumn("Compare"),
         "Shortlist": st.column_config.CheckboxColumn("Shortlist"),
         "INSTNM": st.column_config.TextColumn("Institution Name"),
         "CITY": st.column_config.TextColumn("City"),
@@ -304,22 +180,42 @@ def display_table_view(filtered_data):
 
     # Add numeric columns with formatting if they exist
     if 'ADM_RATE' in display_df.columns:
+        # Convert admission rate from decimal to percentage for display
+        display_df['ADM_RATE'] = display_df['ADM_RATE'] * 100
         column_config["ADM_RATE"] = st.column_config.NumberColumn("Admission Rate", format="%.1f%%")
     if 'SAT_AVG' in display_df.columns:
         column_config["SAT_AVG"] = st.column_config.NumberColumn("Avg SAT")
     if 'TUITIONFEE_IN' in display_df.columns:
         column_config["TUITIONFEE_IN"] = st.column_config.NumberColumn("In-State Tuition", format="$%d")
     if 'C150_4' in display_df.columns:
+        # Convert graduation rate from decimal to percentage for display
+        display_df['C150_4'] = display_df['C150_4'] * 100
         column_config["C150_4"] = st.column_config.NumberColumn("Graduation Rate", format="%.1f%%")
+    if 'ADMCON7' in display_df.columns:
+        # Map ADMCON7 values to readable labels
+        policy_map = {
+            1: "Required",
+            2: "Recommended",
+            3: "Neither Required/Recommended",
+            4: "Unknown",
+            5: "Considered but not Required"
+        }
+        # Create a new column with the mapped values
+        display_df['Test_Policy'] = display_df['ADMCON7'].apply(
+            lambda x: policy_map.get(int(x), "Unknown") if pd.notna(x) else "Unknown"
+        )
+        # Add the column to the display and remove the raw ADMCON7 column
+        column_config["Test_Policy"] = st.column_config.TextColumn("Test Score Policy")
+        display_df = display_df.drop(columns=['ADMCON7'])
 
     # Add a helper message
-    st.info("✏️ Check the boxes to select universities for shortlisting or comparison, then click 'Apply Changes' to save your selections.")
+    st.info("✏️ Check the boxes to shortlist universities, then click 'Apply Changes' to save your selections.")
 
     # Display the optimized data editor
     edited_df = st.data_editor(
         display_df,
         key="university_selector",
-        disabled=list(set(display_df.columns) - set(['Select', 'Shortlist'])),
+        disabled=list(set(display_df.columns) - set(['Shortlist'])),
         hide_index=True,
         column_config=column_config,
         use_container_width=True,
@@ -333,23 +229,45 @@ def display_table_view(filtered_data):
 
     # Process selections when apply button is clicked
     if apply_changes and 'UNITID' in edited_df.columns:
-        # Update selected universities
-        selected_unitids = edited_df.loc[edited_df['Select'], 'UNITID'].tolist()
-
         # Get newly shortlisted universities
         shortlisted_unitids = edited_df.loc[edited_df['Shortlist'], 'UNITID'].tolist()
 
-        # Update both lists at once to avoid multiple reruns
-        st.session_state.selected_universities = selected_unitids
-        st.session_state.shortlisted_universities = shortlisted_unitids
+        # Get previously shortlisted universities
+        previously_shortlisted = set(st.session_state.shortlisted_universities)
+        newly_shortlisted = set(shortlisted_unitids) - previously_shortlisted
+        removed_from_shortlist = previously_shortlisted - set(shortlisted_unitids)
 
-        # Show confirmation
-        st.success(f"✅ Updated: {len(shortlisted_unitids)} universities shortlisted, {len(selected_unitids)} selected for comparison")
+        # Update shortlist and automatically select them for comparison
+        st.session_state.shortlisted_universities = shortlisted_unitids
+        st.session_state.selected_universities = shortlisted_unitids
+
+        # Show confirmation with toast notifications
+        if newly_shortlisted:
+            # Show toast for newly added universities (up to 3)
+            added_names = []
+            for unitid in list(newly_shortlisted)[:3]:
+                uni_name = filtered_data.loc[filtered_data['UNITID'] == unitid, 'INSTNM'].iloc[0]
+                added_names.append(uni_name)
+
+            if len(newly_shortlisted) <= 3:
+                for name in added_names:
+                    st.toast(f"Added {name} to your shortlist", icon="✅")
+            else:
+                st.toast(f"Added {len(newly_shortlisted)} universities to your shortlist", icon="✅")
+
+        if removed_from_shortlist:
+            # Show toast for removed universities
+            if len(removed_from_shortlist) == 1:
+                unitid = list(removed_from_shortlist)[0]
+                uni_name = filtered_data.loc[filtered_data['UNITID'] == unitid, 'INSTNM'].iloc[0]
+                st.toast(f"Removed {uni_name} from your shortlist", icon="🗑️")
+            else:
+                st.toast(f"Removed {len(removed_from_shortlist)} universities from your shortlist", icon="🗑️")
 
         # Store the last action for debugging
         st.session_state.last_shortlist_action = {
             'shortlisted': shortlisted_unitids,
-            'selected': selected_unitids
+            'selected': shortlisted_unitids  # Now selected is the same as shortlisted
         }
 
-# Card view has been removed to improve performance
+# Originally, the institutions were returned as formatted, styled 'cards'. This was too slow to run, given the amount of them. At the end I decided to just do a 'smart' table.

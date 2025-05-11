@@ -1,5 +1,5 @@
 """
-Sidebar filter components for the University Scout application.
+Sidebar filter components
 """
 
 import streamlit as st
@@ -10,11 +10,6 @@ def display_sidebar_filters(df):
     """
     Displays sidebar filters and returns selected values.
 
-    Args:
-        df: DataFrame containing university data
-
-    Returns:
-        dict: Dictionary of selected filter values
     """
     st.sidebar.header("🔍 Filter Universities")
 
@@ -27,19 +22,44 @@ def display_sidebar_filters(df):
         # Create a mapping from display name to abbreviation
         state_display_to_abbr = {f"{STATE_NAMES.get(state, state)} ({state})": state for state in states_abbr}
 
+        # Add a helpful message about filtering
+        st.markdown("""
+        <div style="margin-bottom: 10px; font-size: 0.9em; color: #6c757d;">
+            <i>Select states to filter universities. Leave empty to show all states.</i>
+        </div>
+        """, unsafe_allow_html=True)
+
         selected_states_full = st.multiselect(
             "State/Territory",
             states_full,
-            default=states_full
+            default=[]
         )
 
-        # Convert selected full names back to abbreviations
-        selected_states = [state_display_to_abbr[state] for state in selected_states_full]
+        # If no states are selected, include all states
+        if not selected_states_full:
+            selected_states = states_abbr
+        else:
+            # Convert selected full names back to abbreviations
+            selected_states = [state_display_to_abbr[state] for state in selected_states_full]
 
     with st.sidebar.expander("🏫 Institution Type", expanded=True):
         # Control Type Filter
         control_types = sorted(df['CONTROL_TYPE'].dropna().unique())
-        selected_control_types = st.multiselect("Control Type", control_types, default=control_types)
+
+        # Add a helpful message about filtering
+        st.markdown("""
+        <div style="margin-bottom: 10px; font-size: 0.9em; color: #6c757d;">
+            <i>Select institution types to filter. Leave empty to show all types.</i>
+        </div>
+        """, unsafe_allow_html=True)
+
+        selected_control_types_input = st.multiselect("Institution Type", control_types, default=[])
+
+        # If no types are selected, include all types
+        if not selected_control_types_input:
+            selected_control_types = control_types
+        else:
+            selected_control_types = selected_control_types_input
 
     with st.sidebar.expander("🎓 Admissions", expanded=True):
         # Admission Rate Filter
@@ -72,6 +92,24 @@ def display_sidebar_filters(df):
             )
         else:
             selected_sat = None
+
+        # Test Score Policy Filter (if available)
+        if 'ADMCON7' in df.columns and df['ADMCON7'].notna().any():
+            test_policy_options = {
+                "Any": "Any Policy",
+                "1": "Tests Required",
+                "2": "Tests Recommended",
+                "3": "Tests Neither Required nor Recommended",
+                "5": "Tests Considered but not Required"
+            }
+
+            selected_test_policy = st.selectbox(
+                "Test Score Policy",
+                options=list(test_policy_options.keys()),
+                format_func=lambda x: test_policy_options[x]
+            )
+        else:
+            selected_test_policy = "Any"
 
     with st.sidebar.expander("💰 Cost & Financial", expanded=False):
         # Tuition Filter (if available)
@@ -108,6 +146,7 @@ def display_sidebar_filters(df):
         "control_types": selected_control_types,
         "adm_rate": selected_adm_rate,
         "sat": selected_sat,
+        "test_policy": selected_test_policy,
         "tuition": selected_tuition,
         "grad_rate": selected_grad
     }
